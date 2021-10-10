@@ -3,6 +3,7 @@ package freedom
 import (
 	"context"
 	"net"
+	"time"
 
 	"github.com/txthinking/socks5"
 	"golang.org/x/net/proxy"
@@ -22,6 +23,8 @@ type Client struct {
 	proxyAddr    *tunnel.Address
 	username     string
 	password     string
+	//by Victor
+	dnsAddr		 string
 }
 
 func (c *Client) DialConn(addr *tunnel.Address, _ tunnel.Tunnel) (tunnel.Conn, error) {
@@ -50,6 +53,18 @@ func (c *Client) DialConn(addr *tunnel.Address, _ tunnel.Tunnel) (tunnel.Conn, e
 	if c.preferIPv4 {
 		network = "tcp4"
 	}
+	/////by Victor
+	r := &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			d := net.Dialer{
+				Timeout: time.Millisecond * time.Duration(10000),
+			}
+			return d.DialContext(ctx, network, c.dnsAddr)
+		},
+	}
+	net.DefaultResolver=r
+	/////
 	dialer := new(net.Dialer)
 	tcpConn, err := dialer.DialContext(c.ctx, network, addr.String())
 	if err != nil {
@@ -123,5 +138,7 @@ func NewClient(ctx context.Context, _ tunnel.Client) (*Client, error) {
 		proxyAddr:    addr,
 		username:     cfg.ForwardProxy.Username,
 		password:     cfg.ForwardProxy.Password,
+		//by Victor
+		dnsAddr: 	  cfg.TCP.DNSAddress,
 	}, nil
 }
